@@ -1,4 +1,4 @@
-tf.
-TFLiteConverter
-converter
-OpsSet
+streamlit==1.33.0
+tflite-runtime==2.14.0
+numpy==1.26.4
+pillow==10.3.0
