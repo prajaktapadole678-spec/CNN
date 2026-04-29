@@ -1,9 +1,5 @@
 import streamlit as st
-try:
-    import tflite_runtime.interpreter as tflite
-except ImportError:
-    import tensorflow as tf
-    tflite = tf.lite
+import tflite_runtime.interpreter as tflite
 import numpy as np
 from PIL import Image
 import os
@@ -25,15 +21,13 @@ def load_model():
     if not os.path.exists(MODEL_PATH):
         return None, None, None
     
-    interpreter = tflite.Interpreter(model_path=MODEL_PATH)
+    interpreter = tflite.Interpreter(model_path="quantized_model.tflite")
     interpreter.allocate_tensors()
     
     input_details = interpreter.get_input_details()
     output_details = interpreter.get_output_details()
     
     return interpreter, input_details, output_details
-
-converter = tf.lite.TFLiteConverter.from_saved_model("quantized_model.tflite")
 
 # IMPORTANT FIX
 converter.target_spec.supported_ops = [
