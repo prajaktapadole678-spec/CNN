@@ -16,7 +16,7 @@ st.title('Cricket Ball vs. Bat Classifier')
 st.write('Upload an image of a cricket ball or bat to get a prediction!')
 
 # Path to the saved model
-model_path = '/content/drive/MyDrive/cricket/model.pkl'
+model_path = 'quantized_model.tflite'
 
 # Check if the model exists before trying to load
 if not os.path.exists(model_path):
