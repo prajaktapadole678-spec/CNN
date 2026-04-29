@@ -16,7 +16,7 @@ st.title('Cricket Ball vs. Bat Classifier (Quantized TFLite)')
 st.write('Upload an image of a cricket ball or bat to get a prediction!')
 
 # Path to the saved quantized TFLite model bytes in .pkl format
-model_path = '/content/drive/MyDrive/cricket/quantized_model.pkl'
+model_path = 'quantized_model.tflite'
 
 interpreter = None
 input_details = None
