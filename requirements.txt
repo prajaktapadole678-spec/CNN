@@ -1,4 +1,4 @@
-streamlit
-tflite-runtime
-pillow
-numpy
+tf.
+TFLiteConverter
+converter
+OpsSet
