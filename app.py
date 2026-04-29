@@ -33,7 +33,7 @@ def load_model():
     
     return interpreter, input_details, output_details
 
-converter = tf.lite.TFLiteConverter.from_saved_model("your_model")
+converter = tf.lite.TFLiteConverter.from_saved_model("quantized_model.tflite")
 
 # IMPORTANT FIX
 converter.target_spec.supported_ops = [
