@@ -35,7 +35,20 @@ def load_model():
     
     return interpreter, input_details, output_details
 
-interpreter, input_details, output_details = load_model()
+converter = tf.lite.TFLiteConverter.from_saved_model("your_model")
+
+# IMPORTANT FIX
+converter.target_spec.supported_ops = [
+    tf.lite.OpsSet.TFLITE_BUILTINS
+]
+
+# Optional: avoid newer ops
+converter.experimental_new_converter = False
+
+tflite_model = converter.convert()
+
+with open("quantized_model.tflite", "wb") as f:
+    f.write(tflite_model)
 
 if interpreter is None:
     st.error("❌ Model file not found. Make sure 'quantized_model.tflite' is in the repo.")
