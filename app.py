@@ -1,84 +1,99 @@
-
 import streamlit as st
-import tensorflow as tf
-from PIL import Image
 import numpy as np
-import pickle
+from PIL import Image
 import os
 
-# Define the target size used during training
-target_size = (250, 250)
+# Try lightweight runtime first (better for Streamlit Cloud)
+try:
+    import tflite_runtime.interpreter as tflite
+except ImportError:
+    import tensorflow as tf
+    tflite = tf.lite
 
-# Define class names (make sure they match the order from training)
-class_names = ['cricket ball', 'cricket bat'] # Assuming these are your class names
+# Page config
+st.set_page_config(page_title="Cricket Classifier", layout="centered")
 
-st.title('Cricket Ball vs. Bat Classifier (Quantized TFLite)')
-st.write('Upload an image of a cricket ball or bat to get a prediction!')
+# Constants
+MODEL_PATH = "quantized_model.tflite"
+TARGET_SIZE = (250, 250)
+CLASS_NAMES = ['cricket ball', 'cricket bat']
 
-# Path to the saved quantized TFLite model bytes in .pkl format
-model_path = 'quantized_model.tflite'
+st.title("🏏 Cricket Ball vs Bat Classifier")
+st.write("Upload an image to classify it as a cricket ball or bat.")
 
-interpreter = None
-input_details = None
-output_details = None
+# Load model
+@st.cache_resource
+def load_model():
+    if not os.path.exists(MODEL_PATH):
+        return None, None, None
+    
+    interpreter = tflite.Interpreter(model_path=MODEL_PATH)
+    interpreter.allocate_tensors()
+    
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
+    
+    return interpreter, input_details, output_details
 
-# Check if the model exists before trying to load
-if not os.path.exists(model_path):
-    st.error(f"Model file not found at: {model_path}. Please ensure the quantized model is saved correctly.")
-else:
-    # Load the TFLite model bytes from the .pkl file
-    try:
-        with open(model_path, 'rb') as file:
-            tflite_model_bytes = pickle.load(file)
-        
-        # Initialize the TFLite interpreter
-        interpreter = tf.lite.Interpreter(model_content=tflite_model_bytes)
-        interpreter.allocate_tensors()
-        
-        # Get input and output details
-        input_details = interpreter.get_input_details()
-        output_details = interpreter.get_output_details()
-        
-        st.success('Quantized TFLite model loaded successfully!')
-    except Exception as e:
-        st.error(f"Error loading or initializing TFLite model: {e}.")
-        interpreter = None
+interpreter, input_details, output_details = load_model()
 
-if interpreter:
-    uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+if interpreter is None:
+    st.error("❌ Model file not found. Make sure 'quantized_model.tflite' is in the repo.")
+    st.stop()
 
-    if uploaded_file is not None:
-        image = Image.open(uploaded_file).convert('RGB')
-        st.image(image, caption='Uploaded Image.', use_column_width=True)
-        st.write("")
-        st.write("Classifying...")
+st.success("✅ Model loaded successfully!")
 
-        # Preprocess the image
-        image = image.resize(target_size)
-        img_array = np.array(image, dtype=np.float32) # TFLite models often expect float32
-        img_array = np.expand_dims(img_array, axis=0) # Create a batch
-        img_array = img_array / 255.0 # Normalize
+# Upload image
+uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
 
-        # Set the tensor to be the image
+if uploaded_file is not None:
+    image = Image.open(uploaded_file).convert("RGB")
+    st.image(image, caption="Uploaded Image", use_column_width=True)
+
+    # Preprocess
+    image = image.resize(TARGET_SIZE)
+    img_array = np.array(image)
+    img_array = np.expand_dims(img_array, axis=0)
+
+    # Handle quantization
+    input_scale, input_zero_point = input_details[0]['quantization']
+
+    if input_scale > 0:
+        img_array = img_array / input_scale + input_zero_point
+        img_array = img_array.astype(input_details[0]['dtype'])
+    else:
+        img_array = img_array.astype(np.float32) / 255.0
+
+    # Run inference
+    with st.spinner("🔍 Classifying..."):
         interpreter.set_tensor(input_details[0]['index'], img_array)
-        
-        # Run inference
         interpreter.invoke()
-        
-        # Get the output tensor
         output_data = interpreter.get_tensor(output_details[0]['index'])
-        
-        # Apply softmax if needed (TFLite models might not include it)
-        # If the model output is logits, apply softmax to get probabilities
-        if output_details[0]['dtype'] == np.float32:
-            predictions = tf.nn.softmax(output_data[0]).numpy()
-        else:
-            # If output is already probabilities or integer quantized output
-            predictions = output_data[0]
 
-        predicted_class_index = np.argmax(predictions)
-        predicted_class = class_names[predicted_class_index]
-        confidence = np.max(predictions) * 100
+    # Dequantize output
+    output_scale, output_zero_point = output_details[0]['quantization']
 
-        st.write(f"Prediction: **{predicted_class}**")
-        st.write(f"Confidence: **{confidence:.2f}%**")
+    if output_scale > 0:
+        predictions = (output_data[0] - output_zero_point) * output_scale
+    else:
+        predictions = output_data[0]
+
+    # Softmax (for safety)
+    exp_preds = np.exp(predictions - np.max(predictions))
+    predictions = exp_preds / np.sum(exp_preds)
+
+    # Results
+    predicted_index = np.argmax(predictions)
+    predicted_class = CLASS_NAMES[predicted_index]
+    confidence = predictions[predicted_index] * 100
+
+    st.subheader(f"Prediction: {predicted_class}")
+    st.write(f"Confidence: {confidence:.2f}%")
+
+    # Show all class probabilities
+    st.subheader("Class Probabilities")
+    for i, prob in enumerate(predictions):
+        st.write(f"{CLASS_NAMES[i]}: {prob*100:.2f}%")
+
+    # Bar chart
+    st.bar_chart(predictions)
