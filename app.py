@@ -8,9 +8,6 @@ import numpy as np
 from PIL import Image
 import os
 
-# Try lightweight runtime first (better for Streamlit Cloud)
-
-
 # Page config
 st.set_page_config(page_title="Cricket Classifier", layout="centered")
 
