@@ -1,15 +1,15 @@
 import streamlit as st
-import tensorflow as tf
-import numpy as np
-from PIL import Image
-import os
-
-# Try lightweight runtime first (better for Streamlit Cloud)
 try:
     import tflite_runtime.interpreter as tflite
 except ImportError:
     import tensorflow as tf
     tflite = tf.lite
+import numpy as np
+from PIL import Image
+import os
+
+# Try lightweight runtime first (better for Streamlit Cloud)
+
 
 # Page config
 st.set_page_config(page_title="Cricket Classifier", layout="centered")
